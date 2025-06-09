@@ -10,8 +10,7 @@ const MainContent = () => {
 
   return (
     <main className="flex-1 overflow-auto">
-      {view === 'list' && <TaskList />}
-      {view === 'kanban' && <KanbanBoard />}
+      {view === 'list' ? <TaskList /> : <KanbanBoard />}
     </main>
   );
 };
@@ -19,7 +18,7 @@ const MainContent = () => {
 function App() {
   return (
     <TaskProvider>
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-[#fafafa]">
         <Sidebar />
         <MainContent />
       </div>

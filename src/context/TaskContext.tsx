@@ -11,8 +11,8 @@ type TaskAction =
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
-  | { type: 'CHANGE_VIEW'; payload: 'list' | 'kanban' }
-  | { type: 'UPDATE_TASK_STATUS'; payload: { taskId: string; status: TaskStatus } };
+  | { type: 'UPDATE_TASK_STATUS'; payload: { taskId: string; status: TaskStatus } }
+  | { type: 'TOGGLE_VIEW' };
 
 const initialState: TaskState = {
   tasks: [],
@@ -38,11 +38,6 @@ const taskReducer = (state: TaskState, action: TaskAction): TaskState => {
         ...state,
         tasks: state.tasks.filter((task) => task.id !== action.payload),
       };
-    case 'CHANGE_VIEW':
-      return {
-        ...state,
-        view: action.payload,
-      };
     case 'UPDATE_TASK_STATUS':
       return {
         ...state,
@@ -51,6 +46,11 @@ const taskReducer = (state: TaskState, action: TaskAction): TaskState => {
             ? { ...task, status: action.payload.status }
             : task
         ),
+      };
+    case 'TOGGLE_VIEW':
+      return {
+        ...state,
+        view: state.view === 'list' ? 'kanban' : 'list',
       };
     default:
       return state;
@@ -61,8 +61,8 @@ interface TaskContextType extends TaskState {
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => void;
   updateTask: (task: Task) => void;
   deleteTask: (id: string) => void;
-  changeView: (view: 'list' | 'kanban') => void;
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  toggleView: () => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -87,12 +87,12 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dispatch({ type: 'DELETE_TASK', payload: id });
   };
 
-  const changeView = (view: 'list' | 'kanban') => {
-    dispatch({ type: 'CHANGE_VIEW', payload: view });
-  };
-
   const updateTaskStatus = (taskId: string, status: TaskStatus) => {
     dispatch({ type: 'UPDATE_TASK_STATUS', payload: { taskId, status } });
+  };
+
+  const toggleView = () => {
+    dispatch({ type: 'TOGGLE_VIEW' });
   };
 
   return (
@@ -102,8 +102,8 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addTask,
         updateTask,
         deleteTask,
-        changeView,
         updateTaskStatus,
+        toggleView,
       }}
     >
       {children}
