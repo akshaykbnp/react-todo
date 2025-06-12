@@ -8,7 +8,8 @@ import {
   ViewListIcon,
   ViewBoardsIcon,
   PencilIcon,
-  XIcon
+  XIcon,
+  EyeIcon
 } from '@heroicons/react/outline';
 import { useTaskContext } from '../context/TaskContext';
 import type { Task } from '../types';
@@ -19,6 +20,86 @@ interface EditTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+interface ViewTaskModalProps {
+  task: Task;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const getPriorityColor = (priority: Task['priority']) => {
+  switch (priority) {
+    case 'P1':
+      return 'text-red-600';
+    case 'P2':
+      return 'text-orange-500';
+    case 'P3':
+      return 'text-yellow-500';
+    case 'P4':
+      return 'text-blue-500';
+    default:
+      return 'text-gray-400';
+  }
+};
+
+const ViewTaskModal = ({ task, isOpen, onClose }: ViewTaskModalProps) => {
+  return (
+    <div className={`fixed inset-0 z-50 ${isOpen ? '' : 'hidden'}`}>
+      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          <div className="relative w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Task Details</h2>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-500 transition-colors cursor-pointer"
+              >
+                <XIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Title</h3>
+                <p className="mt-1 text-gray-900">{task.title}</p>
+              </div>
+
+              {task.description && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Description</h3>
+                  <p className="mt-1 text-gray-900 whitespace-pre-wrap">{task.description}</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4">
+                {task.dueDate && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Due Date</h3>
+                    <p className="mt-1 text-gray-900">{format(task.dueDate, 'MMM d, yyyy')}</p>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Priority</h3>
+                  <div className={`flex items-center gap-1 mt-1 ${getPriorityColor(task.priority)}`}>
+                    <FlagIcon className="w-4 h-4" />
+                    <span>{task.priority}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                  <p className="mt-1 text-gray-900">{task.status}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
   const { updateTask, deleteTask } = useTaskContext();
@@ -51,21 +132,6 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
   const handlePrioritySelect = (p: Task['priority']) => {
     setPriority(p);
     setShowPriorityDropdown(false);
-  };
-
-  const getPriorityColor = (p: Task['priority']) => {
-    switch (p) {
-      case 'P1':
-        return 'text-red-600';
-      case 'P2':
-        return 'text-orange-500';
-      case 'P3':
-        return 'text-yellow-500';
-      case 'P4':
-        return 'text-blue-500';
-      default:
-        return 'text-gray-400';
-    }
   };
 
   const getPriorityLabel = (p: Task['priority']) => {
@@ -210,9 +276,11 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
 };
 
 const TaskList = () => {
-  const { filteredTasks, toggleView, view, updateTaskStatus, activeFilter } = useTaskContext();
+  const { filteredTasks, toggleView, view, updateTaskStatus, activeFilter, updateTask } = useTaskContext();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [viewingTask, setViewingTask] = useState<Task | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [datePickerTask, setDatePickerTask] = useState<Task | null>(null);
 
   const groupedTasks = useMemo(() => {
     if (activeFilter === 'priority') {
@@ -294,21 +362,6 @@ const TaskList = () => {
     }
   };
 
-  const getPriorityColor = (priority: Task['priority']) => {
-    switch (priority) {
-      case 'P1':
-        return 'text-red-600';
-      case 'P2':
-        return 'text-orange-500';
-      case 'P3':
-        return 'text-yellow-500';
-      case 'P4':
-        return 'text-blue-500';
-      default:
-        return 'text-gray-400';
-    }
-  };
-
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -361,7 +414,7 @@ const TaskList = () => {
                     task.status === 'DONE' 
                       ? 'bg-[#db4c3f] border-[#db4c3f]' 
                       : 'border-gray-300 group-hover:border-gray-400'
-                  } transition-colors`}
+                  } transition-colors cursor-pointer`}
                 >
                   {task.status === 'DONE' && (
                     <CheckCircleIcon className="w-4 h-4 text-white" />
@@ -396,12 +449,21 @@ const TaskList = () => {
 
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
+                    onClick={() => setViewingTask(task)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
+                  >
+                    <EyeIcon className="w-5 h-5" />
+                  </button>
+                  <button 
                     onClick={() => setEditingTask(task)}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
                   >
                     <PencilIcon className="w-5 h-5" />
                   </button>
-                  <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                  <button 
+                    onClick={() => setDatePickerTask(task)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded cursor-pointer"
+                  >
                     <CalendarIcon className="w-5 h-5" />
                   </button>
                 </div>
@@ -417,6 +479,51 @@ const TaskList = () => {
           isOpen={!!editingTask}
           onClose={() => setEditingTask(null)}
         />
+      )}
+
+      {viewingTask && (
+        <ViewTaskModal
+          task={viewingTask}
+          isOpen={!!viewingTask}
+          onClose={() => setViewingTask(null)}
+        />
+      )}
+
+      {datePickerTask && (
+        <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm" onClick={() => setDatePickerTask(null)} />
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="relative w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 shadow-xl transition-all">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Change Due Date</h2>
+                  <button
+                    onClick={() => setDatePickerTask(null)}
+                    className="text-gray-400 hover:text-gray-500 transition-colors cursor-pointer"
+                  >
+                    <XIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <input
+                    type="date"
+                    value={datePickerTask.dueDate ? format(datePickerTask.dueDate, 'yyyy-MM-dd') : ''}
+                    onChange={(e) => {
+                      const newDate = e.target.value ? new Date(e.target.value) : undefined;
+                      updateTask({
+                        ...datePickerTask,
+                        dueDate: newDate
+                      });
+                      setDatePickerTask(null);
+                    }}
+                    className="w-full px-3 py-2 text-gray-900 border rounded-md border-gray-200 focus:border-[#db4c3f] focus:ring-1 focus:ring-[#db4c3f]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <AddTaskModal
