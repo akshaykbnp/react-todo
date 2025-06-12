@@ -14,7 +14,7 @@ import { useTaskContext } from '../context/TaskContext';
 import AddTaskModal from './AddTaskModal';
 
 const Sidebar = () => {
-  const { tasks, view, toggleView } = useTaskContext();
+  const { tasks, view, toggleView, activeFilter, setFilter } = useTaskContext();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const navigation = [
@@ -22,18 +22,22 @@ const Sidebar = () => {
       name: 'Inbox',
       icon: InboxIcon,
       count: tasks.length,
-      onClick: () => {},
+      isActive: activeFilter === 'inbox',
+      onClick: () => setFilter('inbox'),
     },
     {
       name: 'Today',
       icon: CalendarIcon,
       count: tasks.filter(task => task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length,
-      onClick: () => {},
+      isActive: activeFilter === 'today',
+      onClick: () => setFilter('today'),
     },
     {
-      name: 'Filters & Labels',
+      name: 'Priority',
       icon: FilterIcon,
-      onClick: () => {},
+      count: tasks.filter(task => task.priority === 'P1' || task.priority === 'P2').length,
+      isActive: activeFilter === 'priority',
+      onClick: () => setFilter('priority'),
     },
   ];
 
@@ -88,12 +92,20 @@ const Sidebar = () => {
               <button
                 key={item.name}
                 onClick={item.onClick}
-                className="w-full flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-200 rounded-md group transition-colors"
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md group transition-colors ${
+                  item.isActive
+                    ? 'bg-gray-200 text-gray-900'
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <item.icon className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                <item.icon className={`w-5 h-5 ${
+                  item.isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-700'
+                }`} />
                 <span className="flex-1 text-left">{item.name}</span>
-                {item.count && (
-                  <span className="text-sm text-gray-500">{item.count}</span>
+                {item.count !== undefined && (
+                  <span className={`text-sm ${
+                    item.isActive ? 'text-gray-700' : 'text-gray-500'
+                  }`}>{item.count}</span>
                 )}
               </button>
             ))}
@@ -114,7 +126,9 @@ const Sidebar = () => {
                       : 'text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  <item.icon className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                  <item.icon className={`w-5 h-5 ${
+                    item.isActive ? 'text-gray-700' : 'text-gray-500 group-hover:text-gray-700'
+                  }`} />
                   <span className="flex-1 text-left">{item.name}</span>
                 </button>
               ))}

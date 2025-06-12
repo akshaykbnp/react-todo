@@ -17,6 +17,7 @@ const AddTaskModal = ({ isOpen, onClose }: AddTaskModalProps) => {
   const [priority, setPriority] = useState<Priority>('P4');
   const [dueDate, setDueDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,12 @@ const AddTaskModal = ({ isOpen, onClose }: AddTaskModalProps) => {
     setPriority('P4');
     setDueDate('');
     setShowDatePicker(false);
+    setShowPriorityDropdown(false);
+  };
+
+  const handlePrioritySelect = (p: Priority) => {
+    setPriority(p);
+    setShowPriorityDropdown(false);
   };
 
   const getPriorityColor = (p: Priority) => {
@@ -155,29 +162,32 @@ const AddTaskModal = ({ isOpen, onClose }: AddTaskModalProps) => {
                       )}
                     </div>
 
-                    <div className="relative group">
+                    <div className="relative">
                       <button
                         type="button"
+                        onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
                         className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 rounded-md transition-colors ${getPriorityColor(priority)}`}
                       >
                         <FlagIcon className="w-5 h-5" />
                         <span>P{priority[1]}</span>
                       </button>
-                      <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block">
-                        {(['P1', 'P2', 'P3', 'P4'] as Priority[]).map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => setPriority(p)}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                              priority === p ? 'bg-gray-50' : ''
-                            } ${getPriorityColor(p)}`}
-                          >
-                            <FlagIcon className="w-4 h-4" />
-                            <span>{getPriorityLabel(p)}</span>
-                          </button>
-                        ))}
-                      </div>
+                      {showPriorityDropdown && (
+                        <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                          {(['P1', 'P2', 'P3', 'P4'] as Priority[]).map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => handlePrioritySelect(p)}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                priority === p ? 'bg-gray-50' : ''
+                              } ${getPriorityColor(p)}`}
+                            >
+                              <FlagIcon className="w-4 h-4" />
+                              <span>{getPriorityLabel(p)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

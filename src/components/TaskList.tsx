@@ -29,6 +29,7 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
     task.dueDate ? format(task.dueDate, 'yyyy-MM-dd') : ''
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +46,11 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
   const handleDelete = () => {
     deleteTask(task.id);
     onClose();
+  };
+
+  const handlePrioritySelect = (p: Task['priority']) => {
+    setPriority(p);
+    setShowPriorityDropdown(false);
   };
 
   const getPriorityColor = (p: Task['priority']) => {
@@ -142,29 +148,32 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
                   )}
                 </div>
 
-                <div className="relative group">
+                <div className="relative">
                   <button
                     type="button"
+                    onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
                     className={`flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-100 rounded-md transition-colors ${getPriorityColor(priority)}`}
                   >
                     <FlagIcon className="w-5 h-5" />
                     <span>P{priority[1]}</span>
                   </button>
-                  <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 hidden group-hover:block">
-                    {(['P1', 'P2', 'P3', 'P4'] as Task['priority'][]).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPriority(p)}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                          priority === p ? 'bg-gray-50' : ''
-                        } ${getPriorityColor(p)}`}
-                      >
-                        <FlagIcon className="w-4 h-4" />
-                        <span>{getPriorityLabel(p)}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {showPriorityDropdown && (
+                    <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                      {(['P1', 'P2', 'P3', 'P4'] as Task['priority'][]).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePrioritySelect(p)}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                            priority === p ? 'bg-gray-50' : ''
+                          } ${getPriorityColor(p)}`}
+                        >
+                          <FlagIcon className="w-4 h-4" />
+                          <span>{getPriorityLabel(p)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -201,28 +210,89 @@ const EditTaskModal = ({ task, isOpen, onClose }: EditTaskModalProps) => {
 };
 
 const TaskList = () => {
-  const { tasks, toggleView, view, updateTaskStatus } = useTaskContext();
+  const { filteredTasks, toggleView, view, updateTaskStatus, activeFilter } = useTaskContext();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => {
-      // Sort by priority first
-      const priorityOrder = { P1: 0, P2: 1, P3: 2, P4: 3 };
-      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
-      if (priorityDiff !== 0) return priorityDiff;
+  const groupedTasks = useMemo(() => {
+    if (activeFilter === 'priority') {
+      // For priority view, group by all priority levels
+      const p1Tasks = filteredTasks.filter(task => task.priority === 'P1');
+      const p2Tasks = filteredTasks.filter(task => task.priority === 'P2');
+      const p3Tasks = filteredTasks.filter(task => task.priority === 'P3');
+      const p4Tasks = filteredTasks.filter(task => task.priority === 'P4');
       
-      // Then by due date
-      if (a.dueDate && b.dueDate) {
-        return a.dueDate.getTime() - b.dueDate.getTime();
+      return [
+        { title: 'Priority 1 (Urgent)', tasks: p1Tasks },
+        { title: 'Priority 2 (High)', tasks: p2Tasks },
+        { title: 'Priority 3 (Medium)', tasks: p3Tasks },
+        { title: 'Priority 4 (Low)', tasks: p4Tasks },
+      ].filter(group => group.tasks.length > 0);
+    }
+
+    // For other views, group by date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const groups = filteredTasks.reduce((acc, task) => {
+      if (!task.dueDate) {
+        acc.noDueDate.push(task);
+        return acc;
       }
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      
-      // Finally by creation date
-      return b.createdAt.getTime() - a.createdAt.getTime();
+
+      const dueDate = new Date(task.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (dueDate.getTime() < today.getTime()) {
+        acc.overdue.push(task);
+      } else if (dueDate.getTime() === today.getTime()) {
+        acc.today.push(task);
+      } else if (dueDate.getTime() === tomorrow.getTime()) {
+        acc.tomorrow.push(task);
+      } else if (dueDate.getTime() <= nextWeek.getTime()) {
+        acc.thisWeek.push(task);
+      } else {
+        acc.later.push(task);
+      }
+
+      return acc;
+    }, {
+      overdue: [] as Task[],
+      today: [] as Task[],
+      tomorrow: [] as Task[],
+      thisWeek: [] as Task[],
+      later: [] as Task[],
+      noDueDate: [] as Task[],
     });
-  }, [tasks]);
+
+    return [
+      { title: 'Overdue', tasks: groups.overdue },
+      { title: 'Today', tasks: groups.today },
+      { title: 'Tomorrow', tasks: groups.tomorrow },
+      { title: 'This Week', tasks: groups.thisWeek },
+      { title: 'Later', tasks: groups.later },
+      { title: 'No Due Date', tasks: groups.noDueDate },
+    ].filter(group => group.tasks.length > 0);
+  }, [filteredTasks, activeFilter]);
+
+  const getPageTitle = () => {
+    switch (activeFilter) {
+      case 'inbox':
+        return 'Inbox';
+      case 'today':
+        return 'Today';
+      case 'priority':
+        return 'Priority Tasks';
+      default:
+        return 'Tasks';
+    }
+  };
 
   const getPriorityColor = (priority: Task['priority']) => {
     switch (priority) {
@@ -243,7 +313,7 @@ const TaskList = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Today</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{getPageTitle()}</h1>
           <p className="text-sm text-gray-500 mt-1">{format(new Date(), 'EEEE, MMMM d')}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -272,65 +342,72 @@ const TaskList = () => {
         </div>
       </div>
       
-      <div className="space-y-1">
-        {sortedTasks.map((task) => (
-          <motion.div
-            key={task.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="group flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-md transition-colors"
-          >
-            <button 
-              onClick={() => updateTaskStatus(task.id, task.status === 'DONE' ? 'TODO' : 'DONE')}
-              className={`flex-shrink-0 w-5 h-5 rounded-full border-2 ${
-                task.status === 'DONE' 
-                  ? 'bg-[#db4c3f] border-[#db4c3f]' 
-                  : 'border-gray-300 group-hover:border-gray-400'
-              } transition-colors`}
-            >
-              {task.status === 'DONE' && (
-                <CheckCircleIcon className="w-4 h-4 text-white" />
-              )}
-            </button>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className={`text-gray-900 truncate ${
-                  task.status === 'DONE' ? 'line-through text-gray-500' : ''
-                }`}>
-                  {task.title}
-                </h3>
-                {task.description && (
-                  <span className="text-xs text-gray-400">Has description</span>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2 mt-1">
-                {task.dueDate && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <CalendarIcon className="w-4 h-4" />
-                    <span>{format(task.dueDate, 'MMM d')}</span>
-                  </div>
-                )}
-                <div className={`flex items-center gap-1 text-xs ${getPriorityColor(task.priority)}`}>
-                  <FlagIcon className="w-4 h-4" />
-                  <span>{task.priority}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => setEditingTask(task)}
-                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+      <div className="space-y-6">
+        {groupedTasks.map((group) => (
+          <div key={group.title} className="space-y-1">
+            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">
+              {group.title}
+            </h2>
+            {group.tasks.map((task) => (
+              <motion.div
+                key={task.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-md transition-colors"
               >
-                <PencilIcon className="w-5 h-5" />
-              </button>
-              <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
-                <CalendarIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </motion.div>
+                <button 
+                  onClick={() => updateTaskStatus(task.id, task.status === 'DONE' ? 'TODO' : 'DONE')}
+                  className={`flex-shrink-0 w-5 h-5 rounded-full border-2 ${
+                    task.status === 'DONE' 
+                      ? 'bg-[#db4c3f] border-[#db4c3f]' 
+                      : 'border-gray-300 group-hover:border-gray-400'
+                  } transition-colors`}
+                >
+                  {task.status === 'DONE' && (
+                    <CheckCircleIcon className="w-4 h-4 text-white" />
+                  )}
+                </button>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className={`text-gray-900 truncate ${
+                      task.status === 'DONE' ? 'line-through text-gray-500' : ''
+                    }`}>
+                      {task.title}
+                    </h3>
+                    {task.description && (
+                      <span className="text-xs text-gray-400">Has description</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-1">
+                    {task.dueDate && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <CalendarIcon className="w-4 h-4" />
+                        <span>{format(task.dueDate, 'MMM d')}</span>
+                      </div>
+                    )}
+                    <div className={`flex items-center gap-1 text-xs ${getPriorityColor(task.priority)}`}>
+                      <FlagIcon className="w-4 h-4" />
+                      <span>{task.priority}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => setEditingTask(task)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                    <CalendarIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         ))}
       </div>
 
